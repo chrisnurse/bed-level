@@ -1,0 +1,98 @@
+﻿@page "/"
+@using levelled.utils
+
+<h1>Marlin Bed Leveling Assistant</h1>
+<p>1. Run your printer bed mesh process</p>
+<p>Using your favorite terminal, you can input...</p>
+<p><b>G29</b></p>
+<p>...which will perform the bed meshing routine</p>
+<br />
+<p>2. Get the results of the bed meshing routine</p>
+<p>Using your favorite terminal, you can input...</p>
+<p><b>M503</b></p>
+<p>...which will output a lot of configuration detail.</p>
+<p>We just want the lines that contain G29</p>
+<p>Copy and paste the lines with <b>G29</b> in to the field below</p>
+<br />
+<table>
+    <tbody>
+    @for (var y = 0; y < height; y++)
+    {
+        <tr>
+            @for (var x = 0; x < width; x++)
+            {
+                var height = 0;
+
+                if (matrix[x, y] > 0.05)
+                    height = 1;
+                else if (matrix[x, y] < -0.05)
+                    height = -1;
+
+                var text = matrix[x, y].ToString("0.000");
+
+                @if (x == 4)
+                {
+                    <td>
+                        @text
+                    </td>
+                }
+
+                <td>
+                    @if ((x == 0 || x == 4) && (y == 0 || y == 4))
+                    {
+                        @if (height > 0)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.RotateRight" />
+                        }
+                        @if (height < 0)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.RotateLeft" />
+                        }
+                    }
+                </td>
+                @if (x < 4)
+                {
+                    <td>
+                        @text
+                    </td>
+                }
+            }
+        </tr>
+    }
+    </tbody>
+</table>
+<br/>
+<MudCard>
+    <MudCardContent>
+        <MudForm>
+            <MudTextField @bind-Value="data" Label="Printer Output" Lines="26" TextChanged="ProcessBedData" />
+        </MudForm>
+    </MudCardContent>
+</MudCard>
+
+@code
+{
+    string data = "";
+    static int width = 5;
+    static int height = 5;
+    readonly float[,] matrix = new float[width, height];
+
+    private void ProcessBedData()
+    {
+        var lines = data.Split('\n')
+            .TrimAllNoBlanks()
+            .AllUppercase()
+            .Where(s => s.Comprises("G29"))
+            .Select(s => s.Substring(s.IndexOf("G29")))
+            .ToArray();
+
+        foreach (var line in lines)
+        {
+            var i = line.Segment(2, ' ').Substring(1).ToInt();
+            var y = (height - 1) - line.Segment(3, ' ').Substring(1).ToInt();
+            var x = y % 1 == 1 ? (width - 1) - i : i;
+
+            matrix[x, y] = line.Segment(4, ' ').Substring(1).ToFloat();
+        }
+    }
+}
